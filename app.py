@@ -15,8 +15,8 @@ categorical_cols = ['TENURE']
 numerical_cols = ['MONTANT', 'FREQUENCE_RECH', 'REVENUE', 'ARPU_SEGMENT',
        'FREQUENCE', 'DATA_VOLUME', 'ON_NET', 'ORANGE', 'TIGO', 'REGULARITY', 'FREQ_TOP_PACK']
 
-#Define helper functions
 #setup
+
 #variables and constants
 DIRPATH = os.path.dirname(os.path.realpath(__file__))
 ml_core_fp = os.path.join(DIRPATH, "model\ml.pkl")
@@ -69,7 +69,8 @@ def return_prediction(app_image, *args, preprocessor = preprocessor, model = mod
     # Dataframe has no column names after transformation with preprocessor
     # Add back the column names to the columns of the DataFrame
     if hasattr(preprocessor.named_transformers_['cat']['ordinal'], 'get_feature_names_out'):
-            # Get the one-hot encoded column names
+            
+            # Get the ordinal encoded column names
             cat_columns = preprocessor.named_transformers_['cat']['ordinal'].get_feature_names_out(categorical_features)
            
             #Combine the categorical and numerical column names
@@ -93,6 +94,7 @@ def return_prediction(app_image, *args, preprocessor = preprocessor, model = mod
     }
   
 #Set app interface
+
 #inputs
 TENURE = gr.Dropdown(label = "What is the customer's duration in the network?", choices= ['K > 24 month', 'E 6-9 month', 'H 15-18 month', 'G 12-15 month', 'I 18-21 month', 'J 21-24 month', 'F 9-12 month', 'D 3-6 month'])
 MONTANT = gr.Slider(label = "What is the customers top-up amount?", minimum=15, maximum=500000, value=20, interactive=True)
