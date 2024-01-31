@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 import uvicorn
 #from typing import List, Literal
 from pydantic import BaseModel, Field
+from typing import Any
 import pandas as pd
 import numpy as np
 import pickle, os
@@ -32,6 +33,11 @@ model =  ml_components_dict["model"]
 app = FastAPI(
     title="Customer Churn Analysis API")
 
+class ChurnPredictionResponse(BaseModel):
+#selected_model: Any  # Adjust the type if necessary
+    prediction: int
+    churn_status: str
+
 # Input for Modelling 
 class ChurnFeatures(BaseModel):
     REGION: str = Field(..., description="The location of each client")
@@ -45,7 +51,7 @@ class ChurnFeatures(BaseModel):
     ON_NET: float = Field(..., description="Inter expresso call")
     ORANGE: float = Field(..., description="Call to Orange")
     TIGO: float = Field(..., description="Call to Tigo")
-    REGULARITY: float= Field(..., description="Number of times the client is active for 90 days")
+    REGULARITY: int= Field(..., description="Number of times the client is active for 90 days")
     FREQ_TOP_PACK: float = Field(..., description="Number of times the customer has activated the top pack packages")
 
 
@@ -60,22 +66,15 @@ def appinfo():
 
 
 @app.post('/predict_churn')
-def predict_churn(churn_features: ChurnFeatures):
-    print("Inside predict_churn function")
+async def predict_churn(churn_features: ChurnFeatures) -> ChurnPredictionResponse: 
 
     try:
 
         #Dataframe creation
         df = pd.DataFrame([churn_features.model_dump()])
 
-        print(f'churn_features: {churn_features}')
-        df = pd.DataFrame([churn_features.model_dump()])
-        print(f'dataframe: {df}')
-
         #preprocess data
         preprocessed_data = preprocessor.transform(df)
-
-        print(f'Preprocessed data: {preprocessed_data}')
 
         # Create DataFrames of the preprocessed data
         transformed_df = pd.DataFrame(preprocessed_data)
@@ -83,9 +82,8 @@ def predict_churn(churn_features: ChurnFeatures):
         #Add back column names to the dataframes
 
         #Define column names
-        categorical_cols = ['TENURE', 'REGION']  
+        categorical_cols = ['REGION', 'TENURE'] 
         numerical_cols = ['MONTANT', 'FREQUENCE_RECH', 'REVENUE', 'ARPU_SEGMENT', 'FREQUENCE', 'DATA_VOLUME', 'ON_NET', 'ORANGE', 'TIGO', 'REGULARITY', 'FREQ_TOP_PACK']
-
 
         # Get the one-hot encoder transformer
         onehot_encoder = preprocessor.named_transformers_['region']['onehot']
@@ -97,12 +95,9 @@ def predict_churn(churn_features: ChurnFeatures):
         if hasattr(onehot_encoder, 'get_feature_names_out'):
             cat_columns_onehot = onehot_encoder.get_feature_names_out(['REGION'])
 
-        # Access feature names for ordinal encoder
-        if hasattr(ordinal_encoder, 'get_feature_names_out'):
-            cat_columns_ordinal = ordinal_encoder.get_feature_names_out(['TENURE'])
-
+        #NB: Feature name for ordinal encoder will remain 'TENURE'
         # Combine all feature names
-        all_feature_names = np.concatenate([cat_columns_onehot, cat_columns_ordinal, numerical_cols])
+        all_feature_names = np.concatenate([cat_columns_onehot, ['TENURE'] + numerical_cols])
 
         transformed_df.columns = all_feature_names
 
@@ -113,14 +108,13 @@ def predict_churn(churn_features: ChurnFeatures):
         churn_status = " Customer will Churn" if prediction == 1 else "Customer will not Churn" 
 
         # Create a dictionary for the response
-        prediction_data = {
-        "selected_model": model,
-        "prediction": prediction,
-        "churn_status": churn_status,
-        }
+    
+        return ChurnPredictionResponse(
+    prediction=int(prediction[0]),
+    churn_status=str(churn_status)
+)
 
-        return prediction_data
-
+#selected_model=model, 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred during prediction {str(e)}")
     
